@@ -209,32 +209,62 @@
     [
       "NVIDIA",
       "NVDA",
-      "Acciones"
+      "IA y tecnología"
     ],
     [
       "Microsoft",
       "MSFT",
-      "Acciones"
+      "IA y tecnología"
     ],
     [
       "Alphabet",
       "GOOGL",
-      "Acciones"
+      "IA y tecnología"
+    ],
+    [
+      "Meta",
+      "META",
+      "IA y tecnología"
+    ],
+    [
+      "Amazon",
+      "AMZN",
+      "IA y tecnología"
+    ],
+    [
+      "Broadcom",
+      "AVGO",
+      "IA y tecnología"
+    ],
+    [
+      "AMD",
+      "AMD",
+      "IA y tecnología"
+    ],
+    [
+      "TSMC",
+      "TSM",
+      "IA y tecnología"
+    ],
+    [
+      "ASML",
+      "ASML",
+      "IA y tecnología"
+    ],
+    [
+      "Palantir",
+      "PLTR",
+      "IA y tecnología"
     ],
     [
       "Apple",
       "AAPL",
-      "Acciones"
+      "IA y tecnología"
     ],
     [
       "Tesla",
       "TSLA",
-      "Acciones"
-    ],
-    [
-      "Bitcoin",
-      "BTC-USD",
-      "Cripto"
+      "IA y tecnología"
     ],
     [
       "Oro",
@@ -242,14 +272,24 @@
       "Materias primas"
     ],
     [
-      "Petróleo WTI",
-      "CL=F",
+      "Plata",
+      "SI=F",
       "Materias primas"
     ],
     [
       "Cobre",
       "HG=F",
       "Materias primas"
+    ],
+    [
+      "Petróleo Brent",
+      "BZ=F",
+      "Materias primas"
+    ],
+    [
+      "Bitcoin",
+      "BTC-USD",
+      "Cripto"
     ],
     [
       "Dólar / Sol",
