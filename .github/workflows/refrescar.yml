@@ -25,7 +25,9 @@ jobs:
         with:
           node-version: '20'
       - name: Actualizar noticias y mercados
-        run: python actualizar.py --sin-ia
+        run: python actualizar.py --ia-nube
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - name: Preparar HTML cifrado
         run: python preparar_publico.py
         env:

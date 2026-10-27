@@ -50,7 +50,12 @@ Los scripts se entregan sin iniciar sesión, desplegar ni registrar la tarea aut
 
 ## Refresco en la nube (26 oct 2026)
 
-- `.github/workflows/refrescar.yml` ejecuta `actualizar.py --sin-ia`, prepara un único HTML cifrado y publica `dist/index.html` en Netlify. No usa LM Studio ni genera resúmenes en la nube. Si no obtiene ninguna noticia ni cotización, falla y no despliega; los fallos parciales se muestran como avisos.
+- `.github/workflows/refrescar.yml` ejecuta `actualizar.py --ia-nube`, prepara un único HTML cifrado y publica `dist/index.html` en Netlify. Si no obtiene ninguna noticia ni cotización, falla y no despliega; los fallos parciales se muestran como avisos.
+- Los resúmenes en la nube usan Gemini; el modo local predeterminado sigue usando LM Studio.
+- Crear una clave en https://aistudio.google.com/apikey y guardarla como secreto de Actions `GEMINI_API_KEY`.
+- El secreto es opcional: sin él se publica sin resúmenes y sin aviso de IA.
+- Si Gemini falla, los demás temas continúan y aparece un único aviso: `Resumen IA no disponible para: IA, Bolsa` (según los temas afectados).
+- Para fijar el modelo, definir la variable de entorno `GEMINI_MODEL`; si no, se consulta la lista disponible y se priorizan los modelos Flash indicados en el script.
 - Horarios de Lima: 06:00, 09:00, 12:00, 15:00, 18:00 y 21:00 (cron UTC: `0 11,14,17,20,23,2 * * *`). GitHub puede retrasar ejecuciones programadas. También permite ejecución manual con `workflow_dispatch`; evita solapamientos y tiene límite de 15 minutos.
 - Se necesita un repositorio privado y sus secretos de Actions `TABLERO_CLAVE` (mínimo 8 caracteres) y `NETLIFY_AUTH_TOKEN`. El sitio está fijado como `c5bda084-84cb-48de-a242-04d9a2e9b463`. El generador usa `clave.txt` cuando existe y, en su ausencia, `TABLERO_CLAVE`.
 - Pendientes ya no está en la web, ni siquiera dentro del cifrado. Vive en el Artifact «Pendientes y Tareas»; `data/privado.js` queda solo para la copia local con `ABRIR.bat`. Sin datos privados, la web oculta la pestaña Pendientes y el saludo personal.
