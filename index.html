@@ -242,7 +242,7 @@ function newsItem(it,k,featured=false,list=false,hidden=false){return `<div clas
 function topicPanel(k){const t=P.temas[k],b=bullets(t.resumen),open=expanded.has(k),items=filtered(t.items).slice(0,12);
  if(!items.length && !localSources)return "";
  return `<section class="panel" style="${topicStyle(k)}"><div class="ph"><h2>${esc(t.nombre)}</h2><span class="src">${items.length}</span></div>${sourceButtons(k)}
- ${b.length?`<details class="summary"><summary>Resumen</summary><ul class="brief">${b.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><p class="aiNote">resumen de IA local · verifica en la fuente</p></details>`:""}
+ ${b.length?`<details class="summary"><summary>Resumen</summary><ul class="brief">${b.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><p class="aiNote">resumen de IA · verifica en la fuente</p></details>`:""}
  <div id="items-${esc(k)}">${items.map((it,i)=>newsItem(it,k,i===0,false,i>=5&&!open)).join("")}</div>
  ${items.length>5?`<div class="panel-more"><button class="btn" data-expand="${esc(k)}" aria-expanded="${open}" aria-controls="items-${esc(k)}">${open?"Ver menos":`Ver más (${items.length-5})`}</button></div>`:""}</section>`;
 }
