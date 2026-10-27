@@ -174,6 +174,18 @@ aside{background:var(--bg)}
 .source-heading{display:flex;gap:12px;justify-content:space-between;align-items:center}.source-heading h2{font-size:var(--title)}
 .source-row{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:12px 0}.source-row>div{flex:1;min-width:0}
 #source-form{display:flex;flex-direction:column;margin-top:20px}#source-form input{width:100%}#source-confirm{padding:12px;background:var(--soft);border-radius:8px}#source-message{overflow-wrap:anywhere}
+
+[data-market]{cursor:pointer;touch-action:manipulation}[data-market]:hover{background:var(--soft)}
+#market-dialog{font-family:var(--fb);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;width:min(880px,calc(100% - 24px));max-height:92dvh;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain}
+#market-dialog::backdrop{background:rgba(0,0,0,.6)}
+.market-heading{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.market-heading h2{font-size:24px;line-height:1.2;margin:0 0 6px}.market-heading .btn{flex-shrink:0;min-width:44px}
+.market-price{font-size:32px;font-variant-numeric:tabular-nums;margin:20px 0 4px}.market-price small{font-size:14px;color:var(--mute)}
+.market-ranges{display:flex;gap:8px;margin:20px 0 8px}.market-ranges .btn{min-width:52px}.market-ranges [aria-pressed=true]{color:var(--acc);background:var(--soft);border-color:var(--acc)}.market-ranges button:disabled{opacity:.4;cursor:default}
+#market-plot{position:relative;padding-top:36px}#market-plot svg{width:100%;display:block;touch-action:none;user-select:none}#market-plot text{fill:var(--mute);font:12px var(--fb)}
+.market-tooltip{position:absolute;top:4px;pointer-events:none;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;white-space:nowrap;color:var(--ink)}
+#market-extremes{display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-top:1px solid var(--line);color:var(--mute);font-size:13px}#market-extremes b{display:block;color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.market-yahoo{display:inline-block;min-height:44px;padding:10px 0;font-size:14px}
+@media(max-width:600px){#market-dialog{padding:16px 12px;width:calc(100% - 16px)}.market-heading h2{font-size:21px}.market-price{font-size:28px}.market-ranges{justify-content:space-between}.market-ranges .btn{flex:1}#market-extremes{gap:8px}}
 </style>
 <script>
 try { const t=JSON.parse(localStorage.getItem("tema-tablero")); if(t==="light"||t==="dark") document.documentElement.dataset.theme=t; } catch {}
@@ -215,6 +227,88 @@ const emptyResults=q=>`<div class="vacio" role="status">Sin resultados${q?` para
 const TABS = [["hoy","Hoy",1],["noticias","Noticias",1],["mercados","Mercados",1],["guardados","Guardados",1],["tareas","Tareas",1],["pendientes","Pendientes",!!V]].filter(t => t[2]);
 
 function ago(iso){ if(!iso) return ""; const h=(Date.now()-new Date(iso))/36e5; return h<1?"hace minutos":h<24?`hace ${Math.round(h)} h`:`hace ${Math.round(h/24)} d`; }
+// Funciones puras compartidas con las pruebas de Node.
+function mesAnterior(iso, meses){
+ const d=new Date(iso+'T00:00:00Z'),dia=d.getUTCDate();
+ d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()-meses);
+ const fin=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();
+ d.setUTCDate(Math.min(dia,fin));return d.toISOString().slice(0,10);
+}
+function datosGrafico(m){
+ const h=m.historico;
+ if(h?.fechas?.length===h?.precios?.length&&h?.fechas?.length){
+  return h.precios.map((p,i)=>({precio:p,fecha:h.fechas[i]})).filter(p=>Number.isFinite(p.precio)&&/^\d{4}-\d{2}-\d{2}$/.test(p.fecha)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+ }
+ return (m.serie||[]).filter(Number.isFinite).map(precio=>({precio,fecha:null}));
+}
+function ventanaRango(puntos,meses){
+ if(!puntos.length)return {puntos:[],disponible:false};
+ if(!puntos[0].fecha)return {puntos,disponible:meses===1};
+ const corte=mesAnterior(puntos.at(-1).fecha,meses);
+ let inicio=-1;puntos.forEach((p,i)=>{if(p.fecha<=corte)inicio=i;});
+ // Un año bursátil puede empezar el siguiente día hábil (fin de semana/festivo).
+ const tolerancia=(Date.parse(puntos[0].fecha)-Date.parse(corte))/864e5;
+ return {puntos:puntos.slice(Math.max(0,inicio)),disponible:inicio>=0||(meses===12&&tolerancia>=0&&tolerancia<=7)};
+}
+function variacionRango(puntos){
+ const base=puntos[0]?.precio;return base? (puntos.at(-1).precio/base-1)*100:null;
+}
+function escalaGrafico(puntos,w=760,h=300){
+ const valores=puntos.map(p=>p.precio),min=Math.min(...valores),max=Math.max(...valores);
+ const margen=(max-min)*.08||Math.max(Math.abs(min)*.01,.0001);
+ const bajo=min-margen,alto=max+margen,left=88,right=w-20,top=20,bottom=h-42;
+ const tiempos=puntos.map((p,i)=>p.fecha?Date.parse(p.fecha):i),span=tiempos.at(-1)-tiempos[0];
+ const coords=puntos.map((p,i)=>({x:span?left+(tiempos[i]-tiempos[0])/span*(right-left):(left+right)/2,y:bottom-(p.precio-bajo)/(alto-bajo)*(bottom-top)}));
+ const n=Math.min(w<500?4:5,puntos.length),objetivo=Array.from({length:n},(_,k)=>tiempos[0]+k*span/((n-1)||1));
+ const cercano=t=>tiempos.reduce((b,v,i)=>Math.abs(v-t)<Math.abs(tiempos[b]-t)?i:b,0);
+ let indices=[...new Set(objetivo.map(cercano))];
+ // Separación mínima entre fechas del eje: si dos se pisan, se descarta la intermedia y se conserva el último punto.
+ const util=[];indices.forEach(i=>{if(!util.length||coords[i].x-coords[util.at(-1)].x>=64)util.push(i);});
+ const ultimo=indices.at(-1);if(util.at(-1)!==ultimo){while(util.length>1&&coords[ultimo].x-coords[util.at(-1)].x<64)util.pop();util.push(ultimo);}
+ indices=util;
+ return {min,max,left,right,top,bottom,coords,indices};
+}
+// Fin de funciones puras.
+const precioDetalle=n=>Number(n).toLocaleString('es-PE',{maximumFractionDigits:Math.abs(n)<1?4:2});
+const fechaDetalle=(s,larga=false)=>new Date(s+'T12:00:00Z').toLocaleDateString('es-PE',{timeZone:'UTC',...(larga?{weekday:'short',year:'numeric'}:{}),day:'numeric',month:'short'}).replaceAll('.','');
+const atributosMercado=m=>`role="button" tabindex="0" data-market="${esc(m.simbolo)}" aria-label="Ver gráfico de ${esc(m.nombre)}" aria-haspopup="dialog"`;
+function abrirMercado(simbolo,opener){
+ const mercado=P.mercados.find(m=>m.simbolo===simbolo);if(!mercado)return;
+ let dialog=$('#market-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='market-dialog';document.body.append(dialog);}
+ const puntos=datosGrafico(mercado);let rango=1;
+ dialog.setAttribute('aria-labelledby','market-title');dialog.setAttribute('aria-modal','true');
+ dialog.innerHTML=`<div class="market-heading"><div><h2 id="market-title">${esc(mercado.nombre)}</h2><span class="meta">${esc(mercado.simbolo)}</span></div><button class="btn" id="market-close" aria-label="Cerrar detalle">✕</button></div><div class="market-price">${esc(precioDetalle(mercado.precio))} <small>${esc(mercado.moneda)}</small></div><div id="market-change" aria-live="polite"></div><div class="market-ranges" aria-label="Rango del gráfico">${(puntos[0]?.fecha?[1,3,6,12]:[1]).map(n=>`<button class="btn" data-range="${n}" ${ventanaRango(puntos,n).disponible?'':'disabled'}>${n===12?'1A':n+'M'}</button>`).join('')}</div><div id="market-plot"></div><div id="market-extremes"></div><a class="market-yahoo" href="https://finance.yahoo.com/quote/${esc(encodeURIComponent(mercado.simbolo))}" target="_blank" rel="noopener noreferrer">Abrir en Yahoo Finance ↗</a>`;
+ const oldOverflow=document.documentElement.style.overflow;
+ dialog.onclose=()=>{document.documentElement.style.overflow=oldOverflow;opener?.focus({preventScroll:true});};
+ $('#market-close').onclick=()=>dialog.close();
+ let outside=false;
+ const fuera=e=>{const r=dialog.getBoundingClientRect();return e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom;};
+ dialog.onpointerdown=e=>{outside=e.target===dialog&&fuera(e);};
+ dialog.onclick=e=>{if(e.target===dialog&&outside&&fuera(e))dialog.close();const b=e.target.closest('[data-range]');if(b&&!b.disabled){rango=Number(b.dataset.range);dibujar();}};
+ function dibujar(){
+  const datos=ventanaRango(puntos,rango).puntos,cambio=variacionRango(datos),up=(cambio??0)>=0;
+  dialog.querySelectorAll('[data-range]').forEach(b=>{b.setAttribute('aria-pressed',Number(b.dataset.range)===rango);});
+  $('#market-change').innerHTML=`<span class="${up?'up':'down'}">${cambio===null?'Sin variación disponible':`${up?'+':''}${esc(precioDetalle(cambio))}%`}</span> <span class="meta">${puntos[0]?.fecha?'en el rango elegido':'último mes'}</span>`;
+  if(!datos.length){$('#market-plot').textContent='Sin datos para el gráfico.';return;}
+  const mobile=window.innerWidth<600,w=mobile?360:760,h=mobile?290:(window.innerHeight<880?280:330);
+  const g=escalaGrafico(datos,w,h),line=g.coords.map(p=>`${p.x},${p.y}`).join(' '),color=up?'var(--up)':'var(--down)';
+  $('#market-plot').innerHTML=`<div class="market-tooltip" hidden></div><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Gráfico de precios. Mínimo ${esc(precioDetalle(g.min))}, máximo ${esc(precioDetalle(g.max))}"><defs><linearGradient id="market-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${color}" stop-opacity=".22"/><stop offset="1" stop-color="${color}" stop-opacity=".01"/></linearGradient></defs>${[g.min,g.max].map(v=>{const y=g.coords[datos.findIndex(p=>p.precio===v)].y;return `<line x1="${g.left}" x2="${g.right}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${g.left-8}" y="${y+4}" text-anchor="end">${esc(precioDetalle(v))}</text>`;}).join('')}<polygon points="${g.coords[0].x},${g.bottom} ${line} ${g.coords.at(-1).x},${g.bottom}" fill="url(#market-fill)"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${g.coords.length===1?`<circle cx="${g.coords[0].x}" cy="${g.coords[0].y}" r="4" fill="${color}"/>`:''}${datos[0].fecha?g.indices.map((i,j)=>`<text x="${g.coords[i].x}" y="${h-12}" text-anchor="${j===0?'start':j===g.indices.length-1?'end':'middle'}">${esc(fechaDetalle(datos[i].fecha))}</text>`).join(''):''}<g id="market-guide" hidden><line y1="${g.top}" y2="${g.bottom}" stroke="var(--mute)" stroke-dasharray="4 4"/><circle r="4" fill="${color}" stroke="var(--panel)" stroke-width="2"/></g></svg>`;
+  $('#market-extremes').innerHTML=`<span>Mínimo <b>${esc(precioDetalle(g.min))} ${esc(mercado.moneda)}</b></span><span>Máximo <b>${esc(precioDetalle(g.max))} ${esc(mercado.moneda)}</b></span>`;
+  const svg=$('#market-plot svg'),tip=$('.market-tooltip'),guide=$('#market-guide');
+  const mostrar=e=>{const rect=svg.getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width*w;
+   let i=0;g.coords.forEach((p,j)=>{if(Math.abs(p.x-x)<Math.abs(g.coords[i].x-x))i=j;});
+   const p=g.coords[i],d=datos[i];guide.removeAttribute('hidden');guide.querySelector('line').setAttribute('x1',p.x);guide.querySelector('line').setAttribute('x2',p.x);const dot=guide.querySelector('circle');dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y);
+   tip.hidden=false;tip.textContent=(d.fecha?fechaDetalle(d.fecha,true):'Punto '+(i+1))+' · '+precioDetalle(d.precio)+' '+mercado.moneda;
+   tip.style.left=Math.min(Math.max(p.x/w*rect.width-tip.offsetWidth/2,0),rect.width-tip.offsetWidth)+'px';
+  };
+  svg.onpointerdown=e=>{if(e.button!==0)return;svg.setPointerCapture(e.pointerId);mostrar(e);};svg.onpointermove=mostrar;
+  svg.onpointerleave=()=>{tip.hidden=true;guide.setAttribute('hidden','');};
+ }
+ dibujar();dialog.showModal();document.documentElement.style.overflow='hidden';$('#market-close').focus();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-market]');if(b)abrirMercado(b.dataset.market,b);});
+document.addEventListener('keydown',e=>{const b=e.target.closest('[data-market]');if(b&&(e.key==='Enter'||e.key===' ')){e.preventDefault();abrirMercado(b.dataset.market,b);}});
+
 function spark(s, up, w=110, h=28){ if(!s||s.length<2) return ""; const mn=Math.min(...s), mx=Math.max(...s);
   const pts=s.map((v,i)=>`${(i/(s.length-1)*w).toFixed(1)},${(h-2-(v-mn)/(mx-mn||1)*(h-4)).toFixed(1)}`);
   const c=up?"var(--up)":"var(--down)";
@@ -230,9 +324,9 @@ function nav(){ $("#nav").style.setProperty("--tabs",TABS.length); $("#nav").inn
 }
 
 function tape(){ const t=P.mercados.map(m=>{ const up=m.cambio_pct>=0;
-    return `<div class="tk"><span>${esc(m.nombre)}</span><b>${fmt(m.precio)}</b><b class="${up?"up":"down"}">${up?"▲":"▼"}${Math.abs(m.cambio_pct)}%</b>${spark(m.serie,up,56,18)}</div>`; }).join("");
+    return `<div class="tk" ${atributosMercado(m)}><span>${esc(m.nombre)}</span><b>${fmt(m.precio)}</b><b class="${up?"up":"down"}">${up?"▲":"▼"}${Math.abs(m.cambio_pct)}%</b>${spark(m.serie,up,56,18)}</div>`; }).join("");
   $("#tape").classList.toggle("paused",tapePaused);
-  $("#tape").innerHTML = `<div class="tape-window" tabindex="0" role="region" aria-label="Cotizaciones de mercados"><div class="tape-in"><div style="display:flex">${t}</div><div style="display:flex" aria-hidden="true">${t}</div></div></div><button class="btn tape-control" aria-label="${tapePaused?"Reanudar":"Pausar"} cinta de mercados" aria-pressed="${tapePaused}" id="pause">${tapePaused?"Reanudar":"Pausar"}</button>`;
+  $("#tape").innerHTML = `<div class="tape-window" tabindex="0" role="region" aria-label="Cotizaciones de mercados"><div class="tape-in"><div style="display:flex">${t}</div><div style="display:flex" aria-hidden="true">${t.replaceAll('tabindex="0"','tabindex="-1"')}</div></div></div><button class="btn tape-control" aria-label="${tapePaused?"Reanudar":"Pausar"} cinta de mercados" aria-pressed="${tapePaused}" id="pause">${tapePaused?"Reanudar":"Pausar"}</button>`;
   $("#pause").onclick=()=>{tapePaused=!tapePaused; tape();}; }
 
 function saveButton(it){const g=saved.some(s=>s.url===it.url);return `<button class="btn save-btn" data-save="${esc(it.url)}" data-title="${esc(it.titulo)}" aria-pressed="${g}" aria-label="${g?"Quitar de guardados":"Guardar"}: ${esc(it.titulo)}">${g?"✓ Guardada":"Guardar"}</button>`;}
@@ -254,7 +348,7 @@ function toolbar(){return `<div class="toolbar">${searchBox(query)}<div class="t
 function newsResults(){const keys=tema==="todos"?Object.keys(P.temas):[tema];const items=keys.flatMap(k=>filtered(P.temas[k].items).map(it=>({it,k})));
  return (items.length||localSources&&newsView==="tarjetas")?(newsView==="lista"?`<div class="news-list">${items.map(({it,k})=>newsItem(it,k,false,true)).join("")}</div>`:`<div class="topics ${keys.length===1?"one":""}">${keys.map(topicPanel).join("")}</div>`):emptyResults(query);}
 function savedResults(){const items=saved.filter(it=>matches(it,savedQuery));return items.length?`<div class="box">${items.map(it=>`<div class="row"><span>${newsLink({...it,titulo:it.titulo||it.nota||it.url||"Sin título"})}${it.fuente?`<small class="src">${esc(it.fuente)}</small>`:""}</span>${saveButton({...it,titulo:it.titulo||it.nota||it.url||"Sin título"})}</div>`).join("")}</div>`:savedQuery?emptyResults(savedQuery):'<div class="vacio">Nada guardado. Usa “Guardar” en una noticia.</div>';}
-function miniMarkets(){const symbols=["^GSPC","^IXIC","NVDA","BTC-USD","GC=F","PEN=X"];const items=symbols.map(s=>P.mercados.find(m=>m.simbolo===s)).filter(Boolean);return items.length?`<section aria-label="Resumen de mercados" class="mini-markets">${items.map(m=>`<div class="mini"><div class="nm">${esc(m.nombre)}</div><div class="value">${esc(fmt(m.precio))}</div><div class="change ${m.cambio_pct>=0?"up":"down"}">${m.cambio_pct>=0?"▲":"▼"} ${esc(Math.abs(m.cambio_pct))}%</div>${spark(m.serie,m.cambio_pct>=0,120,24)}<span class="src">último mes</span></div>`).join("")}</section>`:"";}
+function miniMarkets(){const symbols=["^GSPC","^IXIC","NVDA","BTC-USD","GC=F","PEN=X"];const items=symbols.map(s=>P.mercados.find(m=>m.simbolo===s)).filter(Boolean);return items.length?`<section aria-label="Resumen de mercados" class="mini-markets">${items.map(m=>`<div class="mini" ${atributosMercado(m)}><div class="nm">${esc(m.nombre)}</div><div class="value">${esc(fmt(m.precio))}</div><div class="change ${m.cambio_pct>=0?"up":"down"}">${m.cambio_pct>=0?"▲":"▼"} ${esc(Math.abs(m.cambio_pct))}%</div>${spark(m.serie,m.cambio_pct>=0,120,24)}<span class="src">último mes</span></div>`).join("")}</section>`:"";}
 
 const views = {
   hoy(){const h=V?.hoy||{},day=new Date().toLocaleDateString("en-CA",{timeZone:"America/Lima"});const tt=tasks.filter(t=>!t.hecha&&(!t.fecha||t.fecha<=day));
@@ -264,7 +358,7 @@ const views = {
   noticias(){const keys=Object.keys(P.temas);return principal()+(P.avisos||[]).map(a=>`<div class="warn">${esc(a)}</div>`).join("")+`<div class="chips" role="group" aria-label="Temas">${["todos",...keys].map(k=>`<button class="chip ${k===tema?"on":""}" data-tema="${esc(k)}" aria-pressed="${k===tema}">${k==="todos"?"Todo":esc(P.temas[k].nombre)}</button>`).join("")}</div>`+toolbar()+`<div id="results">${newsResults()}</div>`;},
 
   mercados(){ const asignados=new Set(); const grupos=(P.grupos||[]);
-    const card=m=>{ const up=m.cambio_pct>=0; return `<div class="mc"><div class="nm">${esc(m.nombre)}</div><div class="px">${fmt(m.precio)}</div><div class="change ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(m.cambio_pct)}% <span class="src">${esc(m.moneda)}</span></div><div class="chart">${spark(m.serie,up,240,52)}</div><div class="src">último mes</div></div>`; };
+    const card=m=>{ const up=m.cambio_pct>=0; return `<div class="mc" ${atributosMercado(m)}><div class="nm">${esc(m.nombre)}</div><div class="px">${fmt(m.precio)}</div><div class="change ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(m.cambio_pct)}% <span class="src">${esc(m.moneda)}</span></div><div class="chart">${spark(m.serie,up,240,52)}</div><div class="src">último mes</div></div>`; };
     const nombres=[...new Set(P.mercados.map(m=>m.grupo||"Otros"))];
     return `<p class="meta">Con retraso (Yahoo Finance). Informativo, no es consejo de inversión.</p>`
     + nombres.map(n=>{ const L=P.mercados.filter(m=>(m.grupo||"Otros")===n); return `<h2 class="gh">${esc(n)}</h2><div class="mgrid">${L.map(card).join("")}</div>`; }).join(""); },

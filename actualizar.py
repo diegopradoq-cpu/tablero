@@ -5,6 +5,7 @@ Escribe data/publico.js (noticias + mercados). Lo privado (Gmail, pendientes) vi
 aparte en data/privado.js y NO se publica.
 """
 import argparse
+import calendar
 import concurrent.futures as cf
 import email.utils
 import html
@@ -19,6 +20,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 RAIZ = Path(__file__).parent
 UA = {"User-Agent": "Mozilla/5.0 (tablero-diego)"}
@@ -122,15 +124,35 @@ def noticias(cfg):
 
 
 def cotizacion(nombre, simbolo, grupo=""):
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.request.quote(simbolo)}?range=1mo&interval=1d"
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.request.quote(simbolo)}?range=1y&interval=1d"
     r = json.loads(get(url))["chart"]["result"][0]
-    precios = [p for p in r["indicators"]["quote"][0]["close"] if p is not None]
+    nombre_zona = r["meta"].get("exchangeTimezoneName")
+    try:
+        zona = ZoneInfo(nombre_zona) if nombre_zona else timezone.utc
+        fecha_cierre = lambda t: datetime.fromtimestamp(t, zona).date()
+    except ZoneInfoNotFoundError:
+        # Python para Windows incluye la base IANA de Tcl en su biblioteca estándar.
+        # No requiere instalar tzdata ni sustituye las reglas históricas por un offset fijo.
+        import tkinter
+        reloj = tkinter.Tcl()
+        fecha_cierre = lambda t: datetime.strptime(
+            reloj.call("clock", "format", t, "-timezone", ":" + nombre_zona, "-format", "%Y-%m-%d"),
+            "%Y-%m-%d").date()
+    puntos = [(fecha_cierre(t), p)
+              for t, p in zip(r["timestamp"], r["indicators"]["quote"][0]["close"]) if p is not None]
+    precios = [p for _, p in puntos]
     ultimo = r["meta"].get("regularMarketPrice", precios[-1])
-    previo = r["meta"].get("chartPreviousClose") or precios[-2]
+    fin = puntos[-1][0]
+    mes = fin.month - 1 or 12
+    anio = fin.year - (fin.month == 1)
+    corte = fin.replace(year=anio, month=mes, day=min(fin.day, calendar.monthrange(anio, mes)[1]))
+    previo = next((p for d, p in reversed(puntos) if d <= corte), precios[0])
     return {
         "nombre": nombre, "grupo": grupo, "simbolo": simbolo, "precio": round(ultimo, 2),
         "cambio_pct": round((ultimo / previo - 1) * 100, 2), "moneda": r["meta"].get("currency", ""),
         "serie": [round(p, 2) for p in precios[-22:]],
+        "historico": {"fechas": [d.isoformat() for d, _ in puntos],
+                      "precios": [round(p, 4 if p < 1 else 2) for p in precios]},
     }
 
 
