@@ -1,0 +1,10 @@
+# Local Netlify folder
+.netlify
+.gstack/
+
+clave.txt
+data/
+dist/
+_build/
+trabajo/
+__pycache__/

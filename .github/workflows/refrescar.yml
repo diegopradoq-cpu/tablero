@@ -1,0 +1,46 @@
+name: Refrescar tablero
+
+on:
+  schedule:
+    - cron: '0 11,14,17,20,23,2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refrescar-tablero
+  cancel-in-progress: false
+
+jobs:
+  refrescar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Actualizar noticias y mercados
+        run: python actualizar.py --sin-ia
+      - name: Preparar HTML cifrado
+        run: python preparar_publico.py
+        env:
+          TABLERO_CLAVE: ${{ secrets.TABLERO_CLAVE }}
+      - name: Verificar carpeta de publicación
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          dist = Path('dist')
+          assert sorted(p.relative_to(dist).as_posix() for p in dist.rglob('*')) == ['index.html'], 'dist debe contener solo index.html'
+          assert 'staticrypt' in (dist / 'index.html').read_text(encoding='utf-8'), 'Falta cifrado StatiCrypt'
+          PY
+      - name: Publicar en Netlify
+        run: npx --yes netlify-cli@27.14.2 deploy --prod --dir=dist --no-build
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: c5bda084-84cb-48de-a242-04d9a2e9b463
