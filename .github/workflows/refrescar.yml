@@ -1,14 +1,16 @@
 name: Refrescar tablero
 
 on:
-  # PAUSADO el 27 oct 2026: cada deploy de producción en Netlify gasta 15 de los 300 créditos mensuales.
-  # 6 al día agotan el plan en ~3 días y Netlify pausa el sitio. Reactivar solo tras cambiar de hosting.
+  # PAUSADO hasta comprobar que GitHub Pages funciona (Netlify se abandonó: 15 créditos por deploy, 300 al mes).
+  # Descomentar schedule para reactivar el refresco automático.
   # schedule:
   #   - cron: '0 11,14,17,20,23,2 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 concurrency:
   group: refrescar-tablero
@@ -18,6 +20,9 @@ jobs:
   refrescar:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,8 +48,10 @@ jobs:
           assert sorted(p.relative_to(dist).as_posix() for p in dist.rglob('*')) == ['index.html'], 'dist debe contener solo index.html'
           assert 'staticrypt' in (dist / 'index.html').read_text(encoding='utf-8'), 'Falta cifrado StatiCrypt'
           PY
-      - name: Publicar en Netlify
-        run: npx --yes netlify-cli@27.14.2 deploy --prod --dir=dist --no-build
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: c5bda084-84cb-48de-a242-04d9a2e9b463
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
