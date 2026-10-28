@@ -1,10 +1,10 @@
 name: Refrescar tablero
 
 on:
-  # PAUSADO hasta comprobar que GitHub Pages funciona (Netlify se abandonó: 15 créditos por deploy, 300 al mes).
-  # Descomentar schedule para reactivar el refresco automático.
-  # schedule:
-  #   - cron: '0 11,14,17,20,23,2 * * *'
+  # 06, 09, 12, 15, 18 y 21 h de Lima. GitHub Pages no consume créditos (Netlify sí: 15 por deploy).
+  # GitHub desactiva los horarios de un repo público tras 60 días sin actividad: si pasa, reactivar en la pestaña Actions.
+  schedule:
+    - cron: '0 11,14,17,20,23,2 * * *'
   workflow_dispatch:
 
 permissions:
