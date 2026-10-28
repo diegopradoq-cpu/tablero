@@ -1,8 +1,10 @@
 name: Refrescar tablero
 
 on:
-  schedule:
-    - cron: '0 11,14,17,20,23,2 * * *'
+  # PAUSADO el 27 oct 2026: cada deploy de producción en Netlify gasta 15 de los 300 créditos mensuales.
+  # 6 al día agotan el plan en ~3 días y Netlify pausa el sitio. Reactivar solo tras cambiar de hosting.
+  # schedule:
+  #   - cron: '0 11,14,17,20,23,2 * * *'
   workflow_dispatch:
 
 permissions:
