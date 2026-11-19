@@ -59,3 +59,9 @@ El plan gratis de Netlify asigna 300 créditos al mes y cada deploy de producci�
 - Pendientes ya no está en la web, ni siquiera dentro del cifrado. Vive en el Artifact «Pendientes y Tareas»; `data/privado.js` queda solo para la copia local con `ABRIR.bat`. Sin datos privados, la web oculta la pestaña Pendientes y el saludo personal.
 - `publicar.bat` local ya no publica; el workflow usa el generador, que solo incrusta `data/publico.js`. `.staticrypt.json` se conserva en Git porque contiene únicamente la sal; la clave y los datos generados quedan excluidos.
 - `programar_refresco.ps1` queda obsoleto y no se registra. Este cambio prepara el flujo: no crea repositorio remoto, no configura secretos y no publica por sí mismo.
+
+## Falla de publicación del 19 nov 2026 (resuelta)
+- Síntoma: el tablero quedó 20 h sin actualizarse. Los runs #69 y #70 (programados) fallaron solo en el paso «Publicar en GitHub Pages» con «No artifacts named "github-pages"», aunque el artefacto sí estaba subido.
+- «Re-run jobs» del mismo run NO sirve: sube un segundo artefacto con el mismo nombre y falla con «Multiple artifacts named github-pages». Siempre lanzar un run nuevo (Actions → Run workflow → main).
+- Arreglo (commit f39103e): `deploy-pages` v4→v5, `upload-pages-artifact` v3→v5, `configure-pages` v5→v6. Run #71 manual salió verde y el sitio se publicó. Causa raíz no confirmada (falla temporal de GitHub o versión vieja incompatible).
+- Pendiente: confirmar que los programados siguientes salgan en verde. Los logs de Actions piden sesión en GitHub; el estado de runs, pasos y anotaciones se puede leer sin sesión por la API pública (`api.github.com/repos/diegopradoq-cpu/tablero/actions/runs`).
