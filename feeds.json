@@ -197,6 +197,16 @@
   },
   "mercados": [
     [
+      "Anthropic",
+      "ANT",
+      "Salidas a bolsa"
+    ],
+    [
+      "SpaceX",
+      "SPCX",
+      "Salidas a bolsa"
+    ],
+    [
       "S&P 500",
       "^GSPC",
       "Índices EE.UU."
