@@ -65,3 +65,10 @@ El plan gratis de Netlify asigna 300 créditos al mes y cada deploy de producci�
 - «Re-run jobs» del mismo run NO sirve: sube un segundo artefacto con el mismo nombre y falla con «Multiple artifacts named github-pages». Siempre lanzar un run nuevo (Actions → Run workflow → main).
 - Arreglo (commit f39103e): `deploy-pages` v4→v5, `upload-pages-artifact` v3→v5, `configure-pages` v5→v6. Run #71 manual salió verde y el sitio se publicó. Causa raíz no confirmada (falla temporal de GitHub o versión vieja incompatible).
 - Pendiente: confirmar que los programados siguientes salgan en verde. Los logs de Actions piden sesión en GitHub; el estado de runs, pasos y anotaciones se puede leer sin sesión por la API pública (`api.github.com/repos/diegopradoq-cpu/tablero/actions/runs`).
+
+## App instalable (PWA) — 20 nov 2026
+- Carpeta `pwa/`: `manifest.webmanifest`, `sw.js` (red primero para la página, copia guardada si no hay red) e íconos. `preparar_publico.py` los copia a `dist/` e inyecta `<link rel=manifest>` + registro del service worker DOS veces: antes de cifrar (StatiCrypt reescribe el documento con `document.write` al descifrar y borra el `<head>` de la envoltura) y en la envoltura cifrada. El registro no depende del evento `load` (ya pasó cuando se descifra).
+- El workflow y `preparar_publico.py` ahora exigen exactamente `index.html` + los 5 archivos de `pwa/` en `dist/`.
+- Si cambia el contenido de `sw.js`, subir `CACHE` (`tablero-v1`) para limpiar copias viejas.
+- Instalar en Android: abrir la URL en Chrome, ingresar la clave (marcar «Recordarme»), menú ⋮ → «Instalar app».
+- Probado en local con clave de prueba (Playwright): manifiesto presente tras descifrar, service worker activo, abre sin servidor desde la copia guardada. Falta probar en el celular real tras publicar.

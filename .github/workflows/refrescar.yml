@@ -45,7 +45,8 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           dist = Path('dist')
-          assert sorted(p.relative_to(dist).as_posix() for p in dist.rglob('*')) == ['index.html'], 'dist debe contener solo index.html'
+          esperado = sorted(['index.html', 'manifest.webmanifest', 'sw.js', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'])
+          assert sorted(p.relative_to(dist).as_posix() for p in dist.rglob('*')) == esperado, 'dist debe contener solo index.html y los archivos de la app'
           assert 'staticrypt' in (dist / 'index.html').read_text(encoding='utf-8'), 'Falta cifrado StatiCrypt'
           PY
       - uses: actions/configure-pages@v6

@@ -19,6 +19,26 @@ build.mkdir()
 d.mkdir()
 
 
+# App instalable (PWA). El manifiesto y el registro del service worker se inyectan DOS veces:
+# en la pagina antes de cifrar (StatiCrypt la reescribe con document.write al descifrar y borra el
+# <head> de la envoltura) y en la envoltura cifrada (para que Chrome la reconozca desde el inicio).
+PWA_ARCHIVOS = ["manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"]
+PWA_HEAD = (
+    '<link rel="manifest" href="manifest.webmanifest">'
+    '<meta name="theme-color" content="#2B4C9B">'
+    '<link rel="apple-touch-icon" href="icon-192.png">'
+    '<script>if("serviceWorker"in navigator&&(location.protocol==="https:"||location.hostname==="localhost")){'
+    'var r=function(){navigator.serviceWorker.register("sw.js").catch(function(){})};'
+    'document.readyState==="complete"?r():addEventListener("load",r)}</script>'
+)
+
+
+def con_pwa(html):
+    if "</head>" not in html:
+        sys.exit("ERROR: no hay </head> donde inyectar el manifiesto.")
+    return html.replace("</head>", PWA_HEAD + "</head>", 1)
+
+
 def inline(m):
     codigo = (r / "data" / m.group(1)).read_text(encoding="utf-8")
     return "<script>\n" + codigo.replace("</", "<\\/") + "\n</script>"
@@ -29,7 +49,7 @@ html, privados = re.subn(r'<script src="data/privado\.js"(?: onerror="void 0")?>
 html, n = re.subn(r'<script src="data/(publico\.js)"></script>', inline, html)
 if n != 1 or privados != 1 or 'src="data/' in html:
     sys.exit("ERROR: no se pudo incrustar publico.js y retirar la etiqueta de privado.js del HTML.")
-(build / "index.html").write_text(html, encoding="utf-8")
+(build / "index.html").write_text(con_pwa(html), encoding="utf-8")
 
 archivo_clave = r / "clave.txt"
 clave = (archivo_clave.read_text(encoding="ascii") if archivo_clave.exists()
@@ -61,8 +81,11 @@ for marca in ("window.PRIVADO", "Tienda Etsy", "Hola, Diego", "TableroDiego", "G
     if marca in salida:
         shutil.rmtree(d, ignore_errors=True)
         sys.exit("ERROR: dist contiene texto en claro (%s). Publicacion cancelada." % marca)
+(d / "index.html").write_text(con_pwa(salida), encoding="utf-8")
+for nombre in PWA_ARCHIVOS:
+    shutil.copy2(r / "pwa" / nombre, d / nombre)
 extra = sorted(str(p.relative_to(d)) for p in d.rglob("*") if p.is_file())
-if extra != ["index.html"]:
+if extra != sorted(["index.html"] + PWA_ARCHIVOS):
     shutil.rmtree(d, ignore_errors=True)
-    sys.exit("ERROR: dist debe tener solo index.html, tiene %s." % extra)
+    sys.exit("ERROR: dist debe tener index.html y los archivos de la app, tiene %s." % extra)
 print("dist/ listo (cifrado):", extra)
