@@ -71,4 +71,4 @@ El plan gratis de Netlify asigna 300 créditos al mes y cada deploy de producci�
 - El workflow y `preparar_publico.py` ahora exigen exactamente `index.html` + los 5 archivos de `pwa/` en `dist/`.
 - Si cambia el contenido de `sw.js`, subir `CACHE` (`tablero-v1`) para limpiar copias viejas.
 - Instalar en Android: abrir la URL en Chrome, ingresar la clave (marcar «Recordarme»), menú ⋮ → «Instalar app».
-- Probado en local con clave de prueba (Playwright): manifiesto presente tras descifrar, service worker activo, abre sin servidor desde la copia guardada. Falta probar en el celular real tras publicar.
+- Probado en local con clave de prueba (Playwright): manifiesto presente tras descifrar, service worker activo, abre sin servidor desde la copia guardada. Confirmado en el Android real (20 nov 2026): Chrome ofrece «Instalar y crear acceso directo» y quedó instalada.
