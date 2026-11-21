@@ -1,12 +1,14 @@
 name: Refrescar tablero
 
 on:
-  # Cada 2 h al minuto :17 (12 por día). GitHub descarta o retrasa horas los cron en punto (:00) cuando va cargado:
+  # Dos cron desfasados (:17 en horas pares UTC y :47 en impares) = una corrida cada hora, 24 por día.
+  # GitHub pierde corridas programadas, así que cada slot tiene respaldo. GitHub descarta o retrasa horas los cron en punto (:00) cuando va cargado:
   # con 6 al día en minuto 0 se perdían la mitad y el tablero quedaba 9-19 h viejo. Más corridas = tolerar pérdidas.
   # GitHub Pages no consume créditos (Netlify sí: 15 por deploy).
   # GitHub desactiva los horarios de un repo público tras 60 días sin actividad: si pasa, reactivar en la pestaña Actions.
   schedule:
     - cron: '17 */2 * * *'
+    - cron: '47 1-23/2 * * *'
   workflow_dispatch:
 
 permissions:
